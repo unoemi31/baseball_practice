@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>野球自主練クエスト - BASEBALL QUEST -</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Oswald (英語・数字のスポーツロゴ風) & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&family=Oswald:ital,wght@0,600;0,700;1,700&display=swap" rel="stylesheet">
+  
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --theme-primary: #0ea5e9;   /* デフォルト：スカイブルー */
+      --theme-accent: #f59e0b;    /* ゴールド */
+      --theme-glow: rgba(14, 165, 233, 0.45);
+    }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background-color: #090d16;
+      /* スタジアムの芝生とナイター照明をイメージした背景 */
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(30, 58, 138, 0.45) 0%, transparent 60%),
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 24px 24px, 24px 24px;
+      color: #f8fafc;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .font-sport {
+      font-family: 'Oswald', sans-serif;
+      letter-spacing: 0.04em;
+    }
+
+    /* スキュー（斜体）スポーツバッジ */
+    .skew-badge {
+      transform: skewX(-12deg);
+    }
+    .skew-badge > * {
+      transform: skewX(12deg);
+    }
+
+    /* 立体ゲームボタン */
+    .btn-game {
+      transition: transform 0.08s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.08s;
+    }
+    .btn-game:active {
+      transform: translateY(3px);
+      box-shadow: 0 0 0 0 rgba(0,0,0,0.4) !important;
+    }
+
+    /* 達成時のインパクトアニメーション */
+    @keyframes hitImpact {
+      0% { transform: scale(1); }
+      30% { transform: scale(1.04); filter: brightness(1.3); }
+      60% { transform: scale(0.98); }
+      100% { transform: scale(1); filter: brightness(1); }
+    }
+    .animate-hit {
+      animation: hitImpact 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* メダルの輝きエフェクト */
+    @keyframes shineSweep {
+      0% { left: -120%; }
+      25% { left: 130%; }
+      100% { left: 130%; }
+    }
+    .trophy-shine {
+      position: relative;
+      overflow: hidden;
+    }
+    .trophy-shine::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -120%;
+      width: 45%;
+      height: 100%;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,0.45), transparent);
+      transform: skewX(-25deg);
+      animation: shineSweep 3.8s infinite;
+    }
+
+    /* フローティングスコア表示 */
+    @keyframes floatScore {
+      0% { opacity: 1; transform: translate(-50%, 0) scale(0.7); }
+      25% { opacity: 1; transform: translate(-50%, -28px) scale(1.2); }
+      100% { opacity: 0; transform: translate(-50%, -68px) scale(1); }
+    }
+    .floating-score {
+      animation: floatScore 1s ease-out forwards;
+      pointer-events: none;
+    }
+
+    /* カスタムテーマカラー適用クラス */
+    .theme-bg { background-color: var(--theme-primary); }
+    .theme-text { color: var(--theme-primary); }
+    .theme-border { border-color: var(--theme-primary); }
+    .theme-glow { box-shadow: 0 0 20px var(--theme-glow); }
+
+    ::-webkit-scrollbar { width: 0px; background: transparent; }
+  </style>
+</head>
+<body class="pb-28 min-h-screen flex flex-col items-center">
+
+  <div class="w-full max-w-lg min-h-screen flex flex-col relative">
+
+    <!-- ==================== ヘッダー（スタジアムスコアボード風） ==================== -->
+    <header class="bg-slate-900/95 backdrop-blur-md border-b-2 border-slate-700/80 sticky top-0 z-20 px-4 pt-3.5 pb-4 shadow-[0_8px_25px_rgba(0,0,0,0.6)]">
+      
+      <!-- 上段：タイトル＆サウンド切替＆連続記録 -->
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg theme-bg flex items-center justify-center text-white font-sport font-bold text-lg shadow-md border border-white/20">
+            ⚾
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="font-sport text-[10px] tracking-widest text-amber-400 font-bold uppercase">BASEBALL QUEST</span>
+              <span id="header-date" class="text-[10px] text-slate-400 font-bold"></span>
+            </div>
+            <h1 class="text-base sm:text-lg font-black tracking-tight text-white leading-none">
+              野球自主練クエスト
+            </h1>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- サウンドON/OFFボタン -->
+          <button onclick="toggleSound()" id="sound-btn" title="効果音 ON/OFF"
+            class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-600 text-amber-400 flex items-center justify-center text-sm hover:bg-slate-700 transition-colors">
+            <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+          </button>
+
+          <!-- 連続日数（ストリーク） -->
+          <div class="bg-gradient-to-r from-orange-600 to-amber-500 px-3 py-1 rounded-xl border border-amber-300/60 shadow-lg flex items-center gap-1.5">
+            <span class="text-base">🔥</span>
+            <div class="leading-none text-right">
+              <span class="text-[9px] font-black text-amber-100 block">連続記録</span>
+              <span id="streak-count" class="font-sport text-base font-bold text-white">0</span><span class="text-[10px] font-black text-white ml-0.5">日</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 下段：選手ステータス＆EXPゲージ -->
+      <div class="bg-slate-800/90 rounded-2xl p-3 border border-slate-700 relative overflow-hidden">
+        <!-- 背番号透かし -->
+        <div id="header-bg-number" class="font-sport font-bold text-6xl text-white/[0.04] absolute -right-1 -bottom-3 pointer-events-none italic">
+          #10
+        </div>
+
+        <div class="flex items-center justify-between mb-2 relative z-10">
+          <div class="flex items-center gap-2.5">
+            <div id="rank-icon" class="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 border border-amber-400/50 flex items-center justify-center text-2xl shadow-inner">
+              🧢
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span id="header-player-badge" class="text-[10px] font-black px-1.5 py-0.5 rounded bg-slate-700 text-slate-200 border border-slate-600">
+                  #10 プレイヤー
+                </span>
+                <span class="text-[10px] font-bold text-amber-400">RANK</span>
+              </div>
+              <div id="rank-title" class="text-base sm:text-lg font-black text-white tracking-wide">
+                2軍ルーキー
+              </div>
+            </div>
+          </div>
+
+          <div class="text-right">
+            <span class="text-[10px] font-bold text-slate-400 block">TOTAL POINT</span>
+            <div class="flex items-baseline justify-end gap-0.5">
+              <span id="total-points" class="font-sport text-2xl sm:text-3xl font-bold text-amber-400 drop-shadow">0</span>
+              <span class="font-sport text-xs font-bold text-amber-200">PT</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 経験値ゲージ -->
+        <div class="relative z-10">
+          <div class="w-full bg-slate-950 rounded-full h-3 p-0.5 border border-slate-700 overflow-hidden">
+            <div id="rank-progress-bar" class="theme-bg h-full rounded-full transition-all duration-500 relative" style="width: 0%">
+              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+            </div>
+          </div>
+          <div class="flex justify-between items-center text-[11px] font-bold mt-1.5">
+            <span id="today-points-badge" class="text-emerald-400 flex items-center gap-1">
+              <i class="fa-solid fa-bolt text-[10px]"></i> 今日: +0 PT
+            </span>
+            <span id="next-rank-text" class="text-slate-300">次の昇格まであと 60 PT</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ==================== メインコンテンツ ==================== -->
+    <main class="flex-1 p-4 space-y-5">
+
+      <!-- タブ1: 今日のミッション -->
+      <section id="tab-today" class="tab-content space-y-4">
+        
+        <!-- 監督・コーチからの指令バナー -->
+        <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-3.5 border-l-4 border-amber-400 shadow-md flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-2xl shrink-0">
+            🧢
+          </div>
+          <div class="flex-1">
+            <div class="text-[10px] font-sport font-bold text-amber-400 tracking-wider">COACH MESSAGE</div>
+            <p id="coach-message" class="text-xs sm:text-sm font-bold text-slate-100 leading-snug mt-0.5">
+              今日も自主練スタートだ！達成したメニューをタップしてポイントを稼げ！
+            </p>
+          </div>
+        </div>
+
+        <!-- ミッション進捗ヘッダー -->
+        <div class="flex items-center justify-between px-1">
+          <h2 class="text-sm sm:text-base font-black text-white flex items-center gap-2">
+            <span class="w-2 h-5 theme-bg rounded-sm inline-block"></span>
+            今日の自主練ミッション
+          </h2>
+          <span id="today-completion-count" class="font-sport text-xs font-bold bg-slate-800 text-amber-400 border border-slate-700 px-3 py-1 rounded-full">
+            0 / 6 CLEAR
+          </span>
+        </div>
+
+        <!-- メニューリスト -->
+        <div id="practice-list" class="space-y-3">
+          <!-- JSで生成 -->
+        </div>
+
+        <!-- 完全試合（全クリ）バナー -->
+        <div id="all-clear-banner" class="hidden bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 text-slate-950 rounded-2xl p-4 shadow-[0_0_25px_rgba(245,158,11,0.4)] border-2 border-yellow-200 text-center animate-hit">
+          <div class="font-sport text-xs font-bold tracking-widest uppercase text-amber-950">PERFECT GAME!</div>
+          <h3 class="text-lg sm:text-xl font-black mt-0.5">🏆 本日の全メニュー制覇！ 🏆</h3>
+          <p class="text-xs font-extrabold text-amber-950 mt-1">文句なしの完全試合だ！ライバルに大きな差をつけたぞ！</p>
+        </div>
+
+      </section>
+
+      <!-- タブ2: 戦績カレンダー -->
+      <section id="tab-calendar" class="tab-content hidden space-y-4">
+        <div class="bg-slate-900 rounded-3xl p-4 shadow-xl border border-slate-700">
+          <!-- カレンダーヘッダー -->
+          <div class="flex items-center justify-between mb-4">
+            <button onclick="changeMonth(-1)" class="btn-game w-10 h-10 rounded-xl bg-slate-800 border border-slate-600 text-slate-200 font-black flex items-center justify-center">
+              <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <div class="text-center">
+              <span class="font-sport text-[10px] text-amber-400 tracking-widest block">GAME LOG</span>
+              <h2 id="calendar-month-title" class="text-lg font-black text-white">2026年 11月</h2>
+            </div>
+            <button onclick="changeMonth(1)" class="btn-game w-10 h-10 rounded-xl bg-slate-800 border border-slate-600 text-slate-200 font-black flex items-center justify-center">
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+
+          <!-- 曜日ヘッダー -->
+          <div class="grid grid-cols-7 text-center text-xs font-black mb-2">
+            <div class="text-rose-400">日</div>
+            <div class="text-slate-400">月</div>
+            <div class="text-slate-400">火</div>
+            <div class="text-slate-400">水</div>
+            <div class="text-slate-400">木</div>
+            <div class="text-slate-400">金</div>
+            <div class="text-sky-400">土</div>
+          </div>
+
+          <!-- 日付グリッド -->
+          <div id="calendar-grid" class="grid grid-cols-7 gap-1.5">
+            <!-- JSで生成 -->
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-center gap-4 text-[11px] font-bold text-slate-400">
+            <span class="flex items-center gap-1"><span class="text-sm">⚾</span> ヒット(1〜2)</span>
+            <span class="flex items-center gap-1"><span class="text-sm">🔥</span> 猛打賞(3以上)</span>
+            <span class="flex items-center gap-1"><span class="text-sm">👑</span> 完全制覇</span>
+          </div>
+        </div>
+
+        <!-- 選択日の戦績詳細 -->
+        <div class="bg-slate-900 rounded-2xl p-4 border border-slate-700">
+          <h3 id="selected-date-title" class="text-sm font-black text-amber-400 mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-clipboard-list"></i> 日付をタップして戦績を確認
+          </h3>
+          <div id="selected-date-content" class="text-xs font-bold text-slate-400">
+            カレンダー上の日付をタップすると、その日に達成したメニューが見られるぞ！
+          </div>
+        </div>
+      </section>
+
+      <!-- タブ3: 称号・トロフィー -->
+      <section id="tab-medals" class="tab-content hidden space-y-5">
+        
+        <!-- トロフィーコレクション -->
+        <div class="bg-slate-900 rounded-3xl p-4 shadow-xl border border-slate-700">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <span class="font-sport text-[10px] text-amber-400 tracking-widest block">TROPHY ROOM</span>
+              <h2 class="text-base font-black text-white">獲得タイトル・メダル</h2>
+            </div>
+            <span id="medal-count-badge" class="font-sport text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-400/40 px-3 py-1 rounded-full">
+              0 / 10 UNLOCKED
+            </span>
+          </div>
+          
+          <div id="medals-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <!-- JSで生成 -->
+          </div>
+        </div>
+
+        <!-- ランク昇格ロード -->
+        <div class="bg-slate-900 rounded-3xl p-4 shadow-xl border border-slate-700">
+          <div class="mb-3">
+            <span class="font-sport text-[10px] text-sky-400 tracking-widest block">CAREER ROAD</span>
+            <h2 class="text-base font-black text-white">選手ランク一覧</h2>
+          </div>
+          <div id="ranks-list" class="space-y-2">
+            <!-- JSで生成 -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- タブ4: 選手カード＆設定 -->
+      <section id="tab-settings" class="tab-content hidden space-y-5">
+        
+        <!-- マイ選手カード（スクショ自慢用カード） -->
+        <div id="player-card-preview" class="rounded-3xl p-5 border-2 border-amber-400/70 shadow-[0_10px_30px_rgba(0,0,0,0.7)] relative overflow-hidden bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950">
+          <!-- 背景装飾 -->
+          <div id="card-watermark-num" class="font-sport font-bold italic text-8xl text-white/[0.06] absolute -right-2 -bottom-4 pointer-events-none">
+            #10
+          </div>
+          <div class="flex items-center justify-between border-b border-white/10 pb-2.5 mb-3">
+            <span class="font-sport text-xs font-bold tracking-widest text-amber-400">OFFICIAL PLAYER CARD</span>
+            <span id="card-rank-badge" class="text-[11px] font-black px-2.5 py-0.5 rounded-full theme-bg text-white">
+              2軍ルーキー
+            </span>
+          </div>
+
+          <div class="flex items-center gap-4 mb-4">
+            <div class="w-16 h-16 rounded-2xl theme-bg flex flex-col items-center justify-center text-white border-2 border-white/30 shadow-lg shrink-0">
+              <span class="text-[10px] font-sport font-bold leading-none opacity-80">NO.</span>
+              <span id="card-number-display" class="font-sport text-3xl font-bold leading-none mt-0.5">10</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div id="card-position-display" class="text-xs font-black text-amber-400">ショート / ピッチャー</div>
+              <div id="card-name-display" class="text-xl font-black text-white truncate">プレイヤー</div>
+              <div id="card-goal-display" class="text-xs font-bold text-slate-300 mt-0.5 truncate">目標：レギュラー獲得！</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 bg-black/40 rounded-2xl p-2.5 border border-white/10 text-center">
+            <div>
+              <span class="text-[10px] text-slate-400 font-bold block">累計ポイント</span>
+              <span id="card-stat-pts" class="font-sport text-base font-bold text-amber-400">0 PT</span>
+            </div>
+            <div class="border-x border-white/10">
+              <span class="text-[10px] text-slate-400 font-bold block">連続記録</span>
+              <span id="card-stat-streak" class="font-sport text-base font-bold text-orange-400">0 日</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-400 font-bold block">獲得メダル</span>
+              <span id="card-stat-medals" class="font-sport text-base font-bold text-sky-400">0 個</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 選手プロフィール編集フォーム -->
+        <div class="bg-slate-900 rounded-3xl p-4 border border-slate-700 space-y-3">
+          <h2 class="text-sm font-black text-white flex items-center gap-2">
+            <i class="fa-solid fa-id-card text-amber-400"></i> 選手プロフィール編集
+          </h2>
+
+          <div class="grid grid-cols-3 gap-2.5">
+            <div class="col-span-2">
+              <label class="block text-[11px] font-bold text-slate-400 mb-1">選手名（ニックネーム）</label>
+              <input type="text" id="input-player-name" maxlength="12" placeholder="例：ショウヘイ"
+                class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-white text-sm font-bold focus:border-amber-400 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-400 mb-1">背番号</label>
+              <input type="text" id="input-player-number" maxlength="3" placeholder="10"
+                class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-white font-sport text-sm font-bold focus:border-amber-400 focus:outline-none">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">守備ポジション</label>
+            <input type="text" id="input-player-pos" maxlength="20" placeholder="例：ピッチャー・ショート"
+              class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-white text-sm font-bold focus:border-amber-400 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">今シーズンの目標</label>
+            <input type="text" id="input-player-goal" maxlength="25" placeholder="例：ホームランを打つ！"
+              class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-white text-sm font-bold focus:border-amber-400 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1.5">チームカラー選択</label>
+            <div class="flex gap-2.5" id="theme-color-selector">
+              <button type="button" data-color="#0ea5e9" data-glow="rgba(14,165,233,0.45)" class="color-btn w-9 h-9 rounded-full bg-sky-500 border-2 border-white shadow"></button>
+              <button type="button" data-color="#ef4444" data-glow="rgba(239,68,68,0.45)" class="color-btn w-9 h-9 rounded-full bg-red-500 border-2 border-transparent"></button>
+              <button type="button" data-color="#10b981" data-glow="rgba(16,185,129,0.45)" class="color-btn w-9 h-9 rounded-full bg-emerald-500 border-2 border-transparent"></button>
+              <button type="button" data-color="#f59e0b" data-glow="rgba(245,158,11,0.45)" class="color-btn w-9 h-9 rounded-full bg-amber-500 border-2 border-transparent"></button>
+              <button type="button" data-color="#8b5cf6" data-glow="rgba(139,92,246,0.45)" class="color-btn w-9 h-9 rounded-full bg-violet-500 border-2 border-transparent"></button>
+            </div>
+          </div>
+
+          <button onclick="savePlayerProfile()" class="btn-game w-full py-2.5 rounded-xl theme-bg text-white font-black text-sm shadow-md">
+            選手カードを保存する
+          </button>
+        </div>
+
+        <!-- 新しい練習メニューの追加 -->
+        <div class="bg-slate-900 rounded-3xl p-4 border border-slate-700 space-y-3">
+          <h2 class="text-sm font-black text-white flex items-center gap-2">
+            <i class="fa-solid fa-plus-circle text-emerald-400"></i> 自主練メニューを追加
+          </h2>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">アイコン</label>
+            <div id="icon-selector" class="flex flex-wrap gap-1.5"></div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">メニュー名（例：トスバッティング 30球）</label>
+            <input type="text" id="new-menu-name" placeholder="練習メニューを入力" maxlength="25"
+              class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-white text-sm font-bold focus:border-emerald-400 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-400 mb-1">獲得ポイント</label>
+            <div class="grid grid-cols-4 gap-2" id="points-selector">
+              <button type="button" data-pt="10" class="pt-btn py-2 rounded-xl border border-slate-600 bg-slate-800 font-sport font-bold text-sm">10 PT</button>
+              <button type="button" data-pt="15" class="pt-btn py-2 rounded-xl border border-slate-600 bg-slate-800 font-sport font-bold text-sm">15 PT</button>
+              <button type="button" data-pt="20" class="pt-btn py-2 rounded-xl border-2 border-amber-400 bg-amber-500/20 text-amber-300 font-sport font-bold text-sm">20 PT</button>
+              <button type="button" data-pt="30" class="pt-btn py-2 rounded-xl border border-slate-600 bg-slate-800 font-sport font-bold text-sm">30 PT</button>
+            </div>
+          </div>
+
+          <button onclick="addNewMenu()" class="btn-game w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-sm shadow-[0_4px_0_0_#065f46]">
+            メニューを追加する
+          </button>
+        </div>
+
+        <!-- 現在のメニュー一覧（編集・削除） -->
+        <div class="bg-slate-900 rounded-3xl p-4 border border-slate-700 space-y-3">
+          <h2 class="text-sm font-black text-white flex items-center gap-2">
+            <i class="fa-solid fa-sliders text-sky-400"></i> 登録中のメニュー編集・削除
+          </h2>
+          <div id="settings-menu-list" class="space-y-2"></div>
+        </div>
+
+        <!-- データ管理・バックアップ（保護者向け） -->
+        <div class="bg-slate-900/60 rounded-2xl p-4 border border-slate-800 space-y-3">
+          <div class="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-shield-halved"></i> データ管理（機種変更・リセット）
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="exportBackupData()" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold hover:bg-slate-700">
+              記録データをコピー（引き継ぎ用）
+            </button>
+            <button onclick="openImportModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold hover:bg-slate-700">
+              データを復元する
+            </button>
+            <button onclick="openResetModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-rose-400 text-xs font-bold hover:bg-slate-700">
+              メニューを初期状態に戻す
+            </button>
+          </div>
+          <p id="backup-status-msg" class="text-[11px] text-emerald-400 font-bold hidden"></p>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- ==================== 下部ナビゲーションバー ==================== -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 z-30">
+      <div class="max-w-lg mx-auto grid grid-cols-4 gap-1 p-1.5">
+        <button onclick="switchTab('today')" id="nav-today" class="nav-btn flex flex-col items-center justify-center py-2 px-1 rounded-xl theme-bg text-white font-black transition-all">
+          <i class="fa-solid fa-baseball-bat-ball text-lg mb-0.5"></i>
+          <span class="text-[10px] leading-none">今日の自主練</span>
+        </button>
+        <button onclick="switchTab('calendar')" id="nav-calendar" class="nav-btn flex flex-col items-center justify-center py-2 px-1 rounded-xl text-slate-400 hover:bg-slate-900 font-bold transition-all">
+          <i class="fa-solid fa-calendar-check text-lg mb-0.5"></i>
+          <span class="text-[10px] leading-none">戦績カレンダー</span>
+        </button>
+        <button onclick="switchTab('medals')" id="nav-medals" class="nav-btn relative flex flex-col items-center justify-center py-2 px-1 rounded-xl text-slate-400 hover:bg-slate-900 font-bold transition-all">
+          <i class="fa-solid fa-trophy text-lg mb-0.5"></i>
+          <span class="text-[10px] leading-none">称号・ランク</span>
+          <span id="new-medal-dot" class="hidden absolute top-1.5 right-5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-slate-950"></span>
+        </button>
+        <button onclick="switchTab('settings')" id="nav-settings" class="nav-btn flex flex-col items-center justify-center py-2 px-1 rounded-xl text-slate-400 hover:bg-slate-900 font-bold transition-all">
+          <i class="fa-solid fa-id-card-clip text-lg mb-0.5"></i>
+          <span class="text-[10px] leading-none">選手・設定</span>
+        </button>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- ==================== モーダル：ランクアップ＆メダル獲得 ==================== -->
+  <div id="celebration-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-gradient-to-b from-slate-800 to-slate-950 rounded-3xl max-w-sm w-full p-6 text-center border-2 border-amber-400 shadow-[0_0_40px_rgba(245,158,11,0.5)] animate-hit relative overflow-hidden">
+      <div id="modal-badge-label" class="font-sport inline-block bg-amber-400 text-slate-950 text-xs font-bold tracking-widest px-3 py-1 rounded-full mb-2">
+        NEW TROPHY!
+      </div>
+      <div id="modal-icon" class="text-6xl my-3 filter drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]">🏆</div>
+      <h3 id="modal-title" class="text-xl font-black text-white mb-1.5">メダル獲得！</h3>
+      <p id="modal-desc" class="text-xs sm:text-sm font-bold text-slate-300 mb-6">はじめての自主練ミッションを達成した！</p>
+      <button onclick="closeCelebrationModal()" class="btn-game w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-base shadow-[0_4px_0_0_#9a3412]">
+        次へ進む！
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== モーダル：メニュー編集 ==================== -->
+  <div id="edit-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 rounded-3xl max-w-sm w-full p-5 border border-slate-700 shadow-2xl space-y-4">
+      <h3 class="text-base font-black text-white">練習メニューを編集</h3>
+      <input type="hidden" id="edit-menu-id">
+      
+      <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1">アイコン</label>
+        <div id="edit-icon-selector" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1">メニュー名</label>
+        <input type="text" id="edit-menu-name" maxlength="25" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-white font-bold text-sm">
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1">獲得ポイント</label>
+        <select id="edit-menu-points" class="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-600 text-white font-sport font-bold text-sm">
+          <option value="10">10 PT</option>
+          <option value="15">15 PT</option>
+          <option value="20">20 PT</option>
+          <option value="25">25 PT</option>
+          <option value="30">30 PT</option>
+          <option value="50">50 PT</option>
+        </select>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeEditModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm">キャンセル</button>
+        <button onclick="saveEditMenu()" class="flex-1 py-2.5 rounded-xl theme-bg text-white font-black text-sm">保存する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== モーダル：データ復元 ==================== -->
+  <div id="import-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 rounded-3xl max-w-sm w-full p-5 border border-slate-700 shadow-2xl space-y-3">
+      <h3 class="text-base font-black text-white">データの復元（引き継ぎ）</h3>
+      <p class="text-xs text-slate-400">コピーしておいたバックアップ文字列を貼り付けてください。</p>
+      <textarea id="import-textarea" rows="4" placeholder='{"menus":...}' class="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-200 font-mono"></textarea>
+      <div class="flex gap-2">
+        <button onclick="closeImportModal()" class="flex-1 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs">閉じる</button>
+        <button onclick="executeImportData()" class="flex-1 py-2 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs">復元を実行</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== モーダル：確認ダイアログ ==================== -->
+  <div id="confirm-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 rounded-3xl max-w-xs w-full p-5 text-center border border-slate-700 shadow-2xl space-y-4">
+      <div class="text-3xl text-amber-400"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <h3 id="confirm-title" class="text-base font-black text-white">確認</h3>
+      <p id="confirm-desc" class="text-xs font-bold text-slate-400">実行しますか？</p>
+      <div class="flex gap-2">
+        <button onclick="closeConfirmModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm">やめる</button>
+        <button id="confirm-ok-btn" class="flex-1 py-2.5 rounded-xl bg-rose-600 text-white font-black text-sm">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- フローティングスコア表示用コンテナ -->
+  <div id="toast-container" class="fixed inset-0 pointer-events-none z-50"></div>
+
+  <!-- ==================== JavaScript ==================== -->
+  <script>
+    // ---------- 1. 定数・マスターデータ ----------
+    const STORAGE_KEY = 'baseball_quest_u12_v1';
+
+    const DEFAULT_MENUS = [
+      { id: 'm1', name: '素振り（50回）', points: 20, icon: '🏏' },
+      { id: 'm2', name: '壁当て・キャッチボール', points: 20, icon: '⚾' },
+      { id: 'm3', name: '体幹トレーニング', points: 15, icon: '💪' },
+      { id: 'm4', name: 'ダッシュ・ランニング', points: 20, icon: '👟' },
+      { id: 'm5', name: 'ティーバッティング', points: 25, icon: '🔥' },
+      { id: 'm6', name: 'グラブ磨き・道具の手入れ', points: 10, icon: '🧤' }
+    ];
+
+    const AVAILABLE_ICONS = ['🏏', '⚾', '🧤', '👟', '💪', '🔥', '🏃', '🎯', '🧢', '⏱️', '⚡', '🏆'];
+
+    const RANKS = [
+      { level: 1, title: '2軍ルーキー', minPoints: 0, icon: '🧢' },
+      { level: 2, title: '1軍ベンチ入り', minPoints: 60, icon: '👕' },
+      { level: 3, title: 'レギュラー選手', minPoints: 150, icon: '⚾' },
+      { level: 4, title: 'クリーンナップ打者', minPoints: 300, icon: '🏏' },
+      { level: 5, title: 'チームの主砲・エース', minPoints: 500, icon: '🔥' },
+      { level: 6, title: '侍ジャパン代表', minPoints: 800, icon: '🇯🇵' },
+      { level: 7, title: 'メジャーリーガー', minPoints: 1200, icon: '🌎' },
+      { level: 8, title: '殿堂入りレジェンド', minPoints: 2000, icon: '👑' }
+    ];
+
+    const MEDALS = [
+      { id: 'first_step', title: '初ヒット記録', desc: 'はじめて自主練メニューを1つ達成！', icon: '⚾', conditionText: '練習を1回達成' },
+      { id: 'all_clear_1', title: '完全試合達成', desc: '1日の全メニューを完全制覇した！', icon: '🌟', conditionText: '1日の全メニュー達成' },
+      { id: 'streak_3', title: '3日連続クリア', desc: '3日連続で自主練を継続した！', icon: '🔥', conditionText: '3日連続で練習' },
+      { id: 'streak_7', title: '1週間連続クリア', desc: '7日連続で自主練をやり抜いた！', icon: '🚀', conditionText: '7日連続で練習' },
+      { id: 'streak_14', title: '鉄人の魂', desc: '14日連続で自主練を達成した！', icon: '💎', conditionText: '14日連続で練習' },
+      { id: 'pts_100', title: '100 PT 突破', desc: '累計 100 PT に到達した！', icon: '🥉', conditionText: '累計100PT達成' },
+      { id: 'pts_500', title: '500 PT 突破', desc: '累計 500 PT の大台を突破！', icon: '🥈', conditionText: '累計500PT達成' },
+      { id: 'pts_1000', title: '1000 PT 達成', desc: '累計 1000 PT 到達の超人！', icon: '🥇', conditionText: '累計1000PT達成' },
+      { id: 'gear_master', title: '道具の達人', desc: 'グラブ磨き・道具の手入れを5回達成！', icon: '🧤', conditionText: '道具の手入れ5回' },
+      { id: 'swing_king', title: 'スラッガーの証', desc: '素振り・打撃練習を10回達成！', icon: '🏏', conditionText: '打撃練習10回' }
+    ];
+
+    const HIT_CALLS = [
+      'ナイスバッティング！',
+      'クリーンヒット！',
+      'ホームラン級の集中力！',
+      'ファインプレー！',
+      'ナイスピッチ！',
+      'ライバルに差をつけた！'
+    ];
+
+    // ---------- 2. アプリ状態管理 ----------
+    let appState = {
+      menus: [],
+      logs: {},
+      unlockedMedals: [],
+      currentRankLevel: 1,
+      soundEnabled: true,
+      profile: {
+        name: 'プレイヤー',
+        number: '10',
+        position: 'ショート / ピッチャー',
+        goal: 'レギュラー獲得＆ホームラン！',
+        themeColor: '#0ea5e9',
+        themeGlow: 'rgba(14, 165, 233, 0.45)'
+      }
+    };
+
+    let calendarViewDate = new Date();
+    let selectedNewIcon = '🏏';
+    let selectedNewPoints = 20;
+    let selectedEditIcon = '🏏';
+    let celebrationQueue = [];
+    let audioCtx = null;
+
+    // ---------- 3. Web Audio API 効果音エンジン ----------
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // 金属バット「カキーン！」＋コイン獲得音
+    function playBatHitSound() {
+      if (!appState.soundEnabled) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+
+        // 1. 金属バットの打球音（高音の金属共鳴）
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc1.type = 'triangle';
+        osc2.type = 'sine';
+        osc1.frequency.setValueAtTime(1450, now);
+        osc1.frequency.exponentialRampToValueAtTime(920, now + 0.18);
+        osc2.frequency.setValueAtTime(2850, now);
+        osc2.frequency.exponentialRampToValueAtTime(1600, now + 0.15);
+
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.25);
+        osc2.stop(now + 0.25);
+
+        // 2. ポイント加算の軽快なチャイム（ピコーン！）
+        const coinOsc = audioCtx.createOscillator();
+        const coinGain = audioCtx.createGain();
+        coinOsc.type = 'sine';
+        coinOsc.frequency.setValueAtTime(987.77, now + 0.08); // B5
+        coinOsc.frequency.setValueAtTime(1318.51, now + 0.16); // E6
+
+        coinGain.gain.setValueAtTime(0.22, now + 0.08);
+        coinGain.gain.exponentialRampToValueAtTime(0.01, now + 0.42);
+
+        coinOsc.connect(coinGain);
+        coinGain.connect(audioCtx.destination);
+        coinOsc.start(now + 0.08);
+        coinOsc.stop(now + 0.42);
+      } catch (e) {
+        // 音声再生ブロック時は無視
+      }
+    }
+
+    // ランクアップ・メダル獲得時のファンファーレ
+    function playFanfareSound() {
+      if (!appState.soundEnabled) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // ド・ミ・ソ・高いド
+        notes.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          const start = now + idx * 0.09;
+          const dur = idx === notes.length - 1 ? 0.5 : 0.14;
+          osc.frequency.setValueAtTime(freq, start);
+          gain.gain.setValueAtTime(0.25, start);
+          gain.gain.exponentialRampToValueAtTime(0.01, start + dur);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(start);
+          osc.stop(start + dur);
+        });
+      } catch (e) {}
+    }
+
+    function toggleSound() {
+      appState.soundEnabled = !appState.soundEnabled;
+      saveData();
+      updateSoundButtonUI();
+      if (appState.soundEnabled) playBatHitSound();
+    }
+
+    function updateSoundButtonUI() {
+      const icon = document.getElementById('sound-icon');
+      const btn = document.getElementById('sound-btn');
+      if (appState.soundEnabled) {
+        icon.className = 'fa-solid fa-volume-high';
+        btn.classList.add('text-amber-400');
+        btn.classList.remove('text-slate-500');
+      } else {
+        icon.className = 'fa-solid fa-volume-xmark';
+        btn.classList.remove('text-amber-400');
+        btn.classList.add('text-slate-500');
+      }
+    }
+
+    // ---------- 4. 初期化・データ永続化 ----------
+    function initApp() {
+      loadData();
+      applyThemeColor(appState.profile.themeColor, appState.profile.themeGlow);
+      updateSoundButtonUI();
+      updateHeaderDate();
+      loadProfileInputs();
+      renderAll();
+    }
+
+    function loadData() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          appState.menus = parsed.menus && parsed.menus.length > 0 ? parsed.menus : JSON.parse(JSON.stringify(DEFAULT_MENUS));
+          appState.logs = parsed.logs || {};
+          appState.unlockedMedals = parsed.unlockedMedals || [];
+          appState.currentRankLevel = parsed.currentRankLevel || 1;
+          appState.soundEnabled = parsed.soundEnabled !== undefined ? parsed.soundEnabled : true;
+          if (parsed.profile) {
+            appState.profile = { ...appState.profile, ...parsed.profile };
+          }
+        } else {
+          appState.menus = JSON.parse(JSON.stringify(DEFAULT_MENUS));
+          saveData();
+        }
+      } catch (e) {
+        appState.menus = JSON.parse(JSON.stringify(DEFAULT_MENUS));
+      }
+    }
+
+    function saveData() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {
+        console.error('保存エラー:', e);
+      }
+    }
+
+    function getTodayStr(dateObj = new Date()) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function updateHeaderDate() {
+      const now = new Date();
+      const days = ['日', '月', '火', '水', '木', '金', '土'];
+      document.getElementById('header-date').textContent = `${now.getMonth() + 1}/${now.getDate()}(${days[now.getDay()]})`;
+    }
+
+    function applyThemeColor(color, glow) {
+      document.documentElement.style.setProperty('--theme-primary', color);
+      document.documentElement.style.setProperty('--theme-glow', glow || 'rgba(14,165,233,0.45)');
+    }
+
+    // ---------- 5. 戦績・ランク計算 ----------
+    function calculateStats() {
+      let totalPoints = 0;
+      let todayPoints = 0;
+      const todayStr = getTodayStr();
+
+      const menuMap = {};
+      appState.menus.forEach(m => { menuMap[m.id] = m; });
+
+      let totalCompletedCount = 0;
+      let careCount = 0;
+      let battingCount = 0;
+
+      Object.keys(appState.logs).forEach(dateStr => {
+        const completedIds = appState.logs[dateStr] || [];
+        completedIds.forEach(id => {
+          totalCompletedCount++;
+          const menu = menuMap[id];
+          const pts = menu ? Number(menu.points) : 15;
+          totalPoints += pts;
+          if (dateStr === todayStr) todayPoints += pts;
+
+          if (menu) {
+            if (menu.icon === '🧤' || menu.name.includes('グラブ') || menu.name.includes('道具')) careCount++;
+            if (menu.icon === '🏏' || menu.icon === '🔥' || menu.name.includes('素振り') || menu.name.includes('バッティング')) battingCount++;
+          }
+        });
+      });
+
+      // 連続練習日数
+      let streak = 0;
+      let checkDate = new Date();
+      if (!appState.logs[getTodayStr(checkDate)] || appState.logs[getTodayStr(checkDate)].length === 0) {
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+      while (true) {
+        const dStr = getTodayStr(checkDate);
+        if (appState.logs[dStr] && appState.logs[dStr].length > 0) {
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+
+      let currentRank = RANKS[0];
+      let nextRank = null;
+      for (let i = 0; i < RANKS.length; i++) {
+        if (totalPoints >= RANKS[i].minPoints) {
+          currentRank = RANKS[i];
+          nextRank = RANKS[i + 1] || null;
+        }
+      }
+
+      return { totalPoints, todayPoints, streak, currentRank, nextRank, totalCompletedCount, careCount, battingCount };
+    }
+
+    // ---------- 6. ミッション達成トグル ----------
+    function togglePractice(menuId, event) {
+      const todayStr = getTodayStr();
+      if (!appState.logs[todayStr]) appState.logs[todayStr] = [];
+
+      const idx = appState.logs[todayStr].indexOf(menuId);
+      const menu = appState.menus.find(m => m.id === menuId);
+      if (!menu) return;
+
+      if (idx === -1) {
+        appState.logs[todayStr].push(menuId);
+        playBatHitSound();
+        triggerHitVisual(menu.points, event);
+      } else {
+        appState.logs[todayStr].splice(idx, 1);
+      }
+
+      saveData();
+      checkAchievements();
+      renderAll();
+    }
+
+    function triggerHitVisual(points, event) {
+      if (typeof confetti === 'function') {
+        const x = event && event.clientX ? event.clientX / window.innerWidth : 0.5;
+        const y = event && event.clientY ? event.clientY / window.innerHeight : 0.6;
+        confetti({
+          particleCount: 40,
+          spread: 65,
+          origin: { x, y },
+          colors: [appState.profile.themeColor, '#fbbf24', '#ffffff', '#34d399']
+        });
+      }
+
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const word = HIT_CALLS[Math.floor(Math.random() * HIT_CALLS.length)];
+      const posX = event && event.clientX ? Math.min(Math.max(event.clientX, 100), window.innerWidth - 100) : window.innerWidth / 2;
+      const posY = event && event.clientY ? event.clientY - 25 : window.innerHeight / 2;
+
+      toast.className = 'floating-score fixed z-50 text-center';
+      toast.style.left = `${posX}px`;
+      toast.style.top = `${posY}px`;
+      toast.innerHTML = `
+        <div class="bg-slate-900/95 text-white font-black text-xs sm:text-sm px-3.5 py-1.5 rounded-full border-2 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.6)] whitespace-nowrap">
+          ${word} <span class="font-sport text-amber-400 ml-1 text-base">+${points} PT</span>
+        </div>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 1000);
+    }
+
+    // ---------- 7. 称号・ランクアップ判定 ----------
+    function checkAchievements() {
+      const stats = calculateStats();
+      const todayStr = getTodayStr();
+      const todayCompleted = appState.logs[todayStr] || [];
+
+      if (stats.currentRank.level > appState.currentRankLevel) {
+        appState.currentRankLevel = stats.currentRank.level;
+        celebrationQueue.push({
+          badge: 'RANK UP!',
+          icon: stats.currentRank.icon,
+          title: `「${stats.currentRank.title}」に昇格！`,
+          desc: `累計 ${stats.totalPoints} PT 達成！さらなる高みを目指せ！`
+        });
+      }
+
+      const conditions = {
+        'first_step': stats.totalCompletedCount >= 1,
+        'all_clear_1': appState.menus.length > 0 && appState.menus.every(m => todayCompleted.includes(m.id)),
+        'streak_3': stats.streak >= 3,
+        'streak_7': stats.streak >= 7,
+        'streak_14': stats.streak >= 14,
+        'pts_100': stats.totalPoints >= 100,
+        'pts_500': stats.totalPoints >= 500,
+        'pts_1000': stats.totalPoints >= 1000,
+        'gear_master': stats.careCount >= 5,
+        'swing_king': stats.battingCount >= 10
+      };
+
+      let newlyUnlocked = false;
+      MEDALS.forEach(medal => {
+        if (conditions[medal.id] && !appState.unlockedMedals.includes(medal.id)) {
+          appState.unlockedMedals.push(medal.id);
+          newlyUnlocked = true;
+          celebrationQueue.push({
+            badge: 'NEW TITLE!',
+            icon: medal.icon,
+            title: `称号「${medal.title}」獲得！`,
+            desc: medal.desc
+          });
+        }
+      });
+
+      if (newlyUnlocked) {
+        document.getElementById('new-medal-dot').classList.remove('hidden');
+      }
+
+      saveData();
+      processCelebrationQueue();
+    }
+
+    function processCelebrationQueue() {
+      if (celebrationQueue.length === 0) return;
+      const modal = document.getElementById('celebration-modal');
+      if (!modal.classList.contains('hidden')) return;
+
+      const item = celebrationQueue.shift();
+      document.getElementById('modal-badge-label').textContent = item.badge;
+      document.getElementById('modal-icon').textContent = item.icon;
+      document.getElementById('modal-title').textContent = item.title;
+      document.getElementById('modal-desc').textContent = item.desc;
+
+      modal.classList.remove('hidden');
+      playFanfareSound();
+      if (typeof confetti === 'function') {
+        confetti({ particleCount: 90, spread: 100, origin: { y: 0.5 } });
+      }
+    }
+
+    function closeCelebrationModal() {
+      document.getElementById('celebration-modal').classList.add('hidden');
+      setTimeout(processCelebrationQueue, 200);
+    }
+
+    // ---------- 8. 画面描画 ----------
+    function renderAll() {
+      renderHeader();
+      renderTodayList();
+      renderCalendar();
+      renderMedalsAndRanks();
+      renderPlayerCard();
+      renderSettings();
+    }
+
+    function renderHeader() {
+      const stats = calculateStats();
+      document.getElementById('streak-count').textContent = stats.streak;
+      document.getElementById('rank-icon').textContent = stats.currentRank.icon;
+      document.getElementById('rank-title').textContent = stats.currentRank.title;
+      document.getElementById('total-points').textContent = stats.totalPoints;
+      document.getElementById('today-points-badge').innerHTML = `<i class="fa-solid fa-bolt text-[10px]"></i> 今日: +${stats.todayPoints} PT`;
+
+      const num = appState.profile.number || '10';
+      const name = appState.profile.name || 'プレイヤー';
+      document.getElementById('header-bg-number').textContent = `#${num}`;
+      document.getElementById('header-player-badge').textContent = `#${num} ${name}`;
+
+      if (stats.nextRank) {
+        const range = stats.nextRank.minPoints - stats.currentRank.minPoints;
+        const progress = stats.totalPoints - stats.currentRank.minPoints;
+        const pct = Math.min(100, Math.max(5, Math.round((progress / range) * 100)));
+        const remain = stats.nextRank.minPoints - stats.totalPoints;
+        document.getElementById('rank-progress-bar').style.width = `${pct}%`;
+        document.getElementById('next-rank-text').textContent = `次の昇格まであと ${remain} PT`;
+      } else {
+        document.getElementById('rank-progress-bar').style.width = '100%';
+        document.getElementById('next-rank-text').textContent = '最高ランク到達！👑';
+      }
+    }
+
+    function renderTodayList() {
+      const container = document.getElementById('practice-list');
+      const todayStr = getTodayStr();
+      const completedIds = appState.logs[todayStr] || [];
+      container.innerHTML = '';
+
+      appState.menus.forEach(menu => {
+        const isDone = completedIds.includes(menu.id);
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.onclick = (e) => togglePractice(menu.id, e);
+
+        if (isDone) {
+          card.className = 'btn-game w-full text-left bg-gradient-to-r from-slate-800 to-emerald-950/80 border-2 border-emerald-400 rounded-2xl p-3.5 shadow-[0_4px_0_0_#059669] flex items-center justify-between gap-3 transition-all animate-hit';
+        } else {
+          card.className = 'btn-game w-full text-left bg-slate-900 hover:bg-slate-800/90 border border-slate-700 rounded-2xl p-3.5 shadow-[0_4px_0_0_#020617] flex items-center justify-between gap-3 transition-all';
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center gap-3.5 min-w-0">
+            <div class="w-12 h-12 rounded-xl ${isDone ? 'bg-emerald-500/20 border border-emerald-400' : 'bg-slate-800 border border-slate-700'} flex items-center justify-center text-2xl shrink-0">
+              ${menu.icon}
+            </div>
+            <div class="min-w-0">
+              <div class="font-black text-sm sm:text-base ${isDone ? 'text-emerald-300' : 'text-white'} truncate">
+                ${escapeHtml(menu.name)}
+              </div>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="font-sport text-xs font-bold px-2 py-0.5 rounded ${isDone ? 'bg-emerald-500 text-slate-950' : 'bg-amber-500/20 text-amber-400 border border-amber-400/30'}">
+                  +${menu.points} PT
+                </span>
+                ${isDone ? '<span class="text-[11px] font-black text-emerald-400">CLEAR!</span>' : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="shrink-0">
+            ${isDone 
+              ? `<div class="w-11 h-11 rounded-xl bg-emerald-400 text-slate-950 flex items-center justify-center text-xl shadow-[0_0_15px_rgba(52,211,153,0.5)]">
+                   <i class="fa-solid fa-check"></i>
+                 </div>`
+              : `<div class="w-11 h-11 rounded-xl bg-slate-800 border-2 border-slate-600 text-slate-600 flex items-center justify-center text-lg">
+                   <i class="fa-solid fa-check"></i>
+                 </div>`
+            }
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      const doneCount = appState.menus.filter(m => completedIds.includes(m.id)).length;
+      const totalCount = appState.menus.length;
+      document.getElementById('today-completion-count').textContent = `${doneCount} / ${totalCount} CLEAR`;
+
+      const coachMsg = document.getElementById('coach-message');
+      const allClearBanner = document.getElementById('all-clear-banner');
+
+      if (totalCount > 0 && doneCount === totalCount) {
+        coachMsg.textContent = 'パーフェクトだ！本日の自主練メニューをすべて制覇したぞ！';
+        allClearBanner.classList.remove('hidden');
+      } else if (doneCount > 0) {
+        coachMsg.textContent = `いいぞ！現在 ${doneCount} 個クリア！全メニュー制覇まであと ${totalCount - doneCount} 個だ！`;
+        allClearBanner.classList.add('hidden');
+      } else {
+        coachMsg.textContent = '今日も自主練スタートだ！達成したメニューをタップしてポイントを稼げ！';
+        allClearBanner.classList.add('hidden');
+      }
+    }
+
+    // ---------- 9. カレンダー描画 ----------
+    function changeMonth(delta) {
+      calendarViewDate.setMonth(calendarViewDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const year = calendarViewDate.getFullYear();
+      const month = calendarViewDate.getMonth();
+      document.getElementById('calendar-month-title').textContent = `${year}年 ${month + 1}月`;
+
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const todayStr = getTodayStr();
+
+      for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'aspect-square';
+        grid.appendChild(empty);
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const logsForDay = appState.logs[dateStr] || [];
+        const count = logsForDay.length;
+        const isToday = dateStr === todayStr;
+
+        let stamp = '';
+        let bgClass = 'bg-slate-800/70 border-slate-700/80 text-slate-400';
+
+        if (count > 0) {
+          if (appState.menus.length > 0 && count >= appState.menus.length) {
+            stamp = '👑';
+            bgClass = 'bg-amber-500/25 border-amber-400 text-amber-300 font-black';
+          } else if (count >= 3) {
+            stamp = '🔥';
+            bgClass = 'bg-emerald-500/20 border-emerald-400 text-emerald-300 font-black';
+          } else {
+            stamp = '⚾';
+            bgClass = 'bg-sky-500/20 border-sky-400 text-sky-300 font-black';
+          }
+        }
+
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.onclick = () => showDayDetail(dateStr);
+        cell.className = `aspect-square rounded-xl border ${bgClass} ${isToday ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-900' : ''} flex flex-col items-center justify-center p-0.5 transition-transform active:scale-95`;
+        cell.innerHTML = `
+          <span class="font-sport text-[11px] leading-none">${d}</span>
+          <span class="text-sm sm:text-base leading-none mt-0.5 h-4 flex items-center justify-center">${stamp}</span>
+        `;
+        grid.appendChild(cell);
+      }
+    }
+
+    function showDayDetail(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      document.getElementById('selected-date-title').innerHTML = `<i class="fa-solid fa-clipboard-list"></i> ${Number(m)}月${Number(d)}日の練習記録`;
+      
+      const completedIds = appState.logs[dateStr] || [];
+      const content = document.getElementById('selected-date-content');
+
+      if (completedIds.length === 0) {
+        content.innerHTML = '<p class="text-slate-500 py-1">この日の練習記録はありません。</p>';
+        return;
+      }
+
+      const menuMap = {};
+      appState.menus.forEach(menu => { menuMap[menu.id] = menu; });
+
+      let html = '<div class="flex flex-wrap gap-2 pt-1">';
+      completedIds.forEach(id => {
+        const menu = menuMap[id];
+        const name = menu ? `${menu.icon} ${escapeHtml(menu.name)}` : '⚾ 自主練メニュー';
+        html += `<span class="bg-slate-800 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-lg text-xs font-bold">${name}</span>`;
+      });
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    // ---------- 10. メダル・ランク描画 ----------
+    function renderMedalsAndRanks() {
+      const stats = calculateStats();
+      const medalGrid = document.getElementById('medals-grid');
+      medalGrid.innerHTML = '';
+
+      document.getElementById('medal-count-badge').textContent = `${appState.unlockedMedals.length} / ${MEDALS.length} UNLOCKED`;
+
+      MEDALS.forEach(medal => {
+        const unlocked = appState.unlockedMedals.includes(medal.id);
+        const card = document.createElement('div');
+        
+        if (unlocked) {
+          card.className = 'trophy-shine bg-gradient-to-b from-slate-800 to-amber-950/50 border border-amber-400/80 rounded-2xl p-3 text-center shadow-md';
+          card.innerHTML = `
+            <div class="text-3xl sm:text-4xl mb-1.5 filter drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]">${medal.icon}</div>
+            <div class="text-xs font-black text-amber-300 leading-tight mb-1">${medal.title}</div>
+            <div class="text-[10px] font-bold text-slate-300 leading-snug">${medal.desc}</div>
+          `;
+        } else {
+          card.className = 'bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-center opacity-70';
+          card.innerHTML = `
+            <div class="text-3xl mb-1.5 text-slate-700"><i class="fa-solid fa-lock"></i></div>
+            <div class="text-xs font-black text-slate-500 leading-tight mb-1">LOCKED</div>
+            <div class="text-[10px] font-bold text-slate-400 bg-slate-900 rounded py-0.5 px-1 border border-slate-800">${medal.conditionText}</div>
+          `;
+        }
+        medalGrid.appendChild(card);
+      });
+
+      const ranksList = document.getElementById('ranks-list');
+      ranksList.innerHTML = '';
+      RANKS.forEach(r => {
+        const isCurrent = r.level === stats.currentRank.level;
+        const isAchieved = stats.totalPoints >= r.minPoints;
+        const row = document.createElement('div');
+        row.className = `flex items-center justify-between p-2.5 rounded-xl border ${
+          isCurrent ? 'bg-slate-800 border-amber-400 shadow-md' : isAchieved ? 'bg-slate-900/80 border-slate-700' : 'bg-slate-950/60 border-slate-800/60 opacity-50'
+        }`;
+        row.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <span class="text-xl">${r.icon}</span>
+            <div>
+              <span class="text-xs font-black ${isCurrent ? 'text-amber-300' : 'text-slate-200'}">${r.title}</span>
+              ${isCurrent ? '<span class="ml-1.5 font-sport text-[9px] bg-amber-400 text-slate-950 px-1.5 py-0.5 rounded font-bold">CURRENT</span>' : ''}
+            </div>
+          </div>
+          <span class="font-sport text-xs font-bold text-slate-400">${r.minPoints} PT〜</span>
+        `;
+        ranksList.appendChild(row);
+      });
+    }
+
+    // ---------- 11. 選手カード＆設定 ----------
+    function loadProfileInputs() {
+      document.getElementById('input-player-name').value = appState.profile.name || '';
+      document.getElementById('input-player-number').value = appState.profile.number || '';
+      document.getElementById('input-player-pos').value = appState.profile.position || '';
+      document.getElementById('input-player-goal').value = appState.profile.goal || '';
+
+      document.querySelectorAll('.color-btn').forEach(btn => {
+        const c = btn.dataset.color;
+        const g = btn.dataset.glow;
+        btn.style.borderColor = (c === appState.profile.themeColor) ? '#ffffff' : 'transparent';
+        btn.onclick = () => {
+          appState.profile.themeColor = c;
+          appState.profile.themeGlow = g;
+          applyThemeColor(c, g);
+          loadProfileInputs();
+          saveData();
+          renderAll();
+        };
+      });
+    }
+
+    function savePlayerProfile() {
+      appState.profile.name = document.getElementById('input-player-name').value.trim() || 'プレイヤー';
+      appState.profile.number = document.getElementById('input-player-number').value.trim() || '10';
+      appState.profile.position = document.getElementById('input-player-pos').value.trim() || 'オールラウンダー';
+      appState.profile.goal = document.getElementById('input-player-goal').value.trim() || '試合で活躍する！';
+      saveData();
+      renderAll();
+      showSimpleToast('選手カードを更新したぞ！');
+    }
+
+    function renderPlayerCard() {
+      const stats = calculateStats();
+      const p = appState.profile;
+      document.getElementById('card-watermark-num').textContent = `#${p.number}`;
+      document.getElementById('card-number-display').textContent = p.number;
+      document.getElementById('card-name-display').textContent = p.name;
+      document.getElementById('card-position-display').textContent = p.position;
+      document.getElementById('card-goal-display').textContent = `目標：${p.goal}`;
+      document.getElementById('card-rank-badge').textContent = stats.currentRank.title;
+
+      document.getElementById('card-stat-pts').textContent = `${stats.totalPoints} PT`;
+      document.getElementById('card-stat-streak').textContent = `${stats.streak} 日`;
+      document.getElementById('card-stat-medals').textContent = `${appState.unlockedMedals.length} 個`;
+    }
+
+    function renderSettings() {
+      const iconContainer = document.getElementById('icon-selector');
+      iconContainer.innerHTML = '';
+      AVAILABLE_ICONS.forEach(icon => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = icon;
+        btn.onclick = () => { selectedNewIcon = icon; renderSettings(); };
+        btn.className = `w-9 h-9 rounded-xl text-lg flex items-center justify-center border transition-all ${
+          selectedNewIcon === icon ? 'border-emerald-400 bg-emerald-500/20 scale-110' : 'border-slate-700 bg-slate-800'
+        }`;
+        iconContainer.appendChild(btn);
+      });
+
+      document.querySelectorAll('.pt-btn').forEach(btn => {
+        const pt = Number(btn.dataset.pt);
+        if (pt === selectedNewPoints) {
+          btn.className = 'pt-btn py-2 rounded-xl border-2 border-amber-400 bg-amber-500/20 text-amber-300 font-sport font-bold text-sm';
+        } else {
+          btn.className = 'pt-btn py-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-400 font-sport font-bold text-sm';
+        }
+        btn.onclick = () => { selectedNewPoints = pt; renderSettings(); };
+      });
+
+      const listContainer = document.getElementById('settings-menu-list');
+      listContainer.innerHTML = '';
+      appState.menus.forEach(menu => {
+        const item = document.createElement('div');
+        item.className = 'flex items-center justify-between bg-slate-800/80 border border-slate-700 rounded-xl p-2.5 gap-2';
+        item.innerHTML = `
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="text-xl shrink-0">${menu.icon}</span>
+            <div class="min-w-0">
+              <div class="text-xs sm:text-sm font-black text-white truncate">${escapeHtml(menu.name)}</div>
+              <div class="font-sport text-[11px] font-bold text-amber-400">+${menu.points} PT</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="openEditModal('${menu.id}')" class="w-8 h-8 rounded-lg bg-slate-700 text-slate-200 hover:text-amber-400 flex items-center justify-center">
+              <i class="fa-solid fa-pen text-xs"></i>
+            </button>
+            <button onclick="confirmDeleteMenu('${menu.id}')" class="w-8 h-8 rounded-lg bg-slate-700 text-rose-400 hover:bg-rose-950 flex items-center justify-center">
+              <i class="fa-solid fa-trash text-xs"></i>
+            </button>
+          </div>
+        `;
+        listContainer.appendChild(item);
+      });
+    }
+
+    function addNewMenu() {
+      const nameInput = document.getElementById('new-menu-name');
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.focus();
+        return;
+      }
+      appState.menus.push({
+        id: 'custom_' + Date.now(),
+        name: name,
+        points: selectedNewPoints,
+        icon: selectedNewIcon
+      });
+      nameInput.value = '';
+      saveData();
+      renderAll();
+      showSimpleToast('新しいメニューを追加した！');
+    }
+
+    function openEditModal(id) {
+      const menu = appState.menus.find(m => m.id === id);
+      if (!menu) return;
+      document.getElementById('edit-menu-id').value = menu.id;
+      document.getElementById('edit-menu-name').value = menu.name;
+      document.getElementById('edit-menu-points').value = menu.points;
+      selectedEditIcon = menu.icon;
+      renderEditIcons();
+      document.getElementById('edit-modal').classList.remove('hidden');
+    }
+
+    function renderEditIcons() {
+      const container = document.getElementById('edit-icon-selector');
+      container.innerHTML = '';
+      AVAILABLE_ICONS.forEach(icon => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = icon;
+        btn.onclick = () => { selectedEditIcon = icon; renderEditIcons(); };
+        btn.className = `w-8 h-8 rounded-lg text-base flex items-center justify-center border ${
+          selectedEditIcon === icon ? 'border-amber-400 bg-amber-500/20' : 'border-slate-700 bg-slate-800'
+        }`;
+        container.appendChild(btn);
+      });
+    }
+
+    function closeEditModal() { document.getElementById('edit-modal').classList.add('hidden'); }
+
+    function saveEditMenu() {
+      const id = document.getElementById('edit-menu-id').value;
+      const name = document.getElementById('edit-menu-name').value.trim();
+      const points = Number(document.getElementById('edit-menu-points').value);
+      if (!name) return;
+      const menu = appState.menus.find(m => m.id === id);
+      if (menu) {
+        menu.name = name;
+        menu.points = points;
+        menu.icon = selectedEditIcon;
+        saveData();
+        renderAll();
+      }
+      closeEditModal();
+    }
+
+    // バックアップ書き出し・復元
+    function exportBackupData() {
+      const json = JSON.stringify(appState);
+      const tempInput = document.createElement('textarea');
+      tempInput.value = json;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+
+      const msg = document.getElementById('backup-status-msg');
+      msg.textContent = '記録データをクリップボードにコピーしました！メモ帳などに貼り付けて保管できます。';
+      msg.classList.remove('hidden');
+      setTimeout(() => msg.classList.add('hidden'), 5000);
+    }
+
+    function openImportModal() { document.getElementById('import-modal').classList.remove('hidden'); }
+    function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
+
+    function executeImportData() {
+      try {
+        const raw = document.getElementById('import-textarea').value.trim();
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.logs) {
+          appState = { ...appState, ...parsed };
+          saveData();
+          applyThemeColor(appState.profile.themeColor, appState.profile.themeGlow);
+          loadProfileInputs();
+          renderAll();
+          closeImportModal();
+          showSimpleToast('データを復元しました！');
+        }
+      } catch (e) {
+        showSimpleToast('データの形式が正しくありません');
+      }
+    }
+
+    // 確認モーダル
+    let pendingConfirmAction = null;
+    function confirmDeleteMenu(id) {
+      const menu = appState.menus.find(m => m.id === id);
+      if (!menu) return;
+      document.getElementById('confirm-title').textContent = `「${menu.name}」を削除しますか？`;
+      document.getElementById('confirm-desc').textContent = 'これまでの累計ポイントや過去の記録はそのまま残ります。';
+      pendingConfirmAction = () => {
+        appState.menus = appState.menus.filter(m => m.id !== id);
+        saveData();
+        renderAll();
+      };
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    }
+
+    function openResetModal() {
+      document.getElementById('confirm-title').textContent = 'メニューを初期状態に戻しますか？';
+      document.getElementById('confirm-desc').textContent = 'メニューリストが最初の6種類に戻ります（累計ポイントは消えません）。';
+      pendingConfirmAction = () => {
+        appState.menus = JSON.parse(JSON.stringify(DEFAULT_MENUS));
+        saveData();
+        renderAll();
+      };
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirm-modal').classList.add('hidden');
+      pendingConfirmAction = null;
+    }
+
+    document.getElementById('confirm-ok-btn').onclick = () => {
+      if (pendingConfirmAction) pendingConfirmAction();
+      closeConfirmModal();
+    };
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.className = 'nav-btn relative flex flex-col items-center justify-center py-2 px-1 rounded-xl text-slate-400 hover:bg-slate-900 font-bold transition-all';
+      });
+      const activeBtn = document.getElementById(`nav-${tabName}`);
+      activeBtn.className = 'nav-btn relative flex flex-col items-center justify-center py-2 px-1 rounded-xl theme-bg text-white font-black shadow-md transition-all';
+
+      if (tabName === 'medals') {
+        document.getElementById('new-medal-dot').classList.add('hidden');
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showSimpleToast(text) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'floating-score fixed left-1/2 top-1/2 z-50';
+      toast.innerHTML = `<div class="bg-slate-900 text-amber-400 border border-amber-400 font-black text-xs px-4 py-2 rounded-full shadow-xl">${text}</div>`;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 1100);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
